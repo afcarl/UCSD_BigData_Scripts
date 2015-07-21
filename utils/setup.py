@@ -11,7 +11,6 @@ from os.path import expanduser
 import boto.ec2
 import socket
 import time
-import curses_menu
 import logging
 import argparse
 import shutil
@@ -56,24 +55,32 @@ def collect_credentials():
                                 'Secret_Access_Key': aws_credentials[2]
                             })
 
-    # If there is more than one AWS key pair then display them using a menu, otherwise just select the one
+    # If there is more than one AWS key pair then display them using a menu,
+    # otherwise just select the one
     if len(credentials) > 1:
+        credential_number = 1
+
         # Log the valid AWS credentials that are found
         logging.info("Multiple AWS credentials found:")
+
+        print "You have multiple AWS credentials in your vault. The usernames are listed below:\n"
+
         for credential in credentials:
             logging.info("AWS credential found: %s : %s" %
                          (credential, credentials[credential]['Creds'][0]['Access_Key_Id']))
 
-        title = "Which AWS credentials do you want to use? Below is the list of user names."
-        top_instructions = "Use the arrow keys make your selection and press return to continue"
-        bottom_instructions = ""
-        user_input = curses_menu.curses_menu(credentials, title=title, top_instructions=top_instructions,
-                                             bottom_instructions=bottom_instructions)
-        user_id = credentials.keys()[int(user_input)]
-        logging.info("AWS credential selected: %s : %s" % (user_id, credentials[user_id]['Creds'][0]['Access_Key_Id']))
+            print "\t%s. %s (%s)" % (credential_number, credential,
+                                     credentials[credential]['Creds'][0]['Access_Key_Id'])
+            credential_number += 1
+
+        user_input = raw_input("\nEnter the number next to the credentials you would like to use: ")
+        user_id = credentials.keys()[int(user_input) - 1]
+        logging.info("AWS credential selected: %s : %s" % (user_id,
+                                                           credentials[user_id]['Creds'][0]['Access_Key_Id']))
     elif len(credentials) == 1:
         user_id = credentials.keys()[0]
-        logging.info("One AWS credential found and selected: %s : %s" % (user_id, credentials.keys()[0]))
+        logging.info("One AWS credential found and selected: %s : %s" % (user_id,
+                                                                         credentials.keys()[0]))
     else:
         logging.info("No AWS credentials found")
         sys.exit("No AWS credentials found.")

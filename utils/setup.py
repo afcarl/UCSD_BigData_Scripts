@@ -5,7 +5,7 @@ choosing one of them, and creating a pickle file to hold them """
 import sys
 import os
 from glob import glob
-import AWS_keypair_management
+import csv
 import pickle
 from os.path import expanduser
 import boto.ec2
@@ -17,13 +17,44 @@ import argparse
 import shutil
 
 
-def collect_credentials():
-    # Log the csv files found in the vault directory
-    for csv in glob(vault+'/*.csv'):
-        logging.info("Found csv file: %s" % csv)
+def test_key_pair(aws_access_key_id, aws_secret_access_key):
+    try:
+        conn = boto.ec2.connect_to_region("us-east-1",
+                                          aws_access_key_id=aws_access_key_id,
+                                          aws_secret_access_key=aws_secret_access_key)
 
-    csv_credentials = AWS_keypair_management.AWS_keypair_management()
-    (credentials, bad_files) = csv_credentials.Get_Working_Credentials(vault)
+        conn.get_all_regions()
+        conn.close()
+        logging.info("AWS Access Key ID and Access Key are correct: %s" % aws_access_key_id)
+        return True
+    except boto.ec2.EC2Connection.ResponseError:
+        conn.close()
+        logging.info("WARN: AWS Access Key ID and Access Key are incorrect: %s" % aws_access_key_id)
+        return False
+
+
+def collect_credentials():
+
+    credentials = {}
+
+    # Log the csv files found in the vault directory
+    for csv_file in glob(vault + '/*.csv'):
+        logging.info("Found csv file: %s" % csv_file)
+
+        if os.path.isfile(csv_file):
+            with open(csv_file, 'r') as f:
+                reader = csv.reader(f)
+                aws_credentials_list = list(reader)
+
+                for aws_credentials in aws_credentials_list:
+                    # skip the csv column header
+                    if not aws_credentials[1] == "Access Key Id":
+                        if test_key_pair(aws_credentials[1], aws_credentials[2]):
+                            credentials[aws_credentials[0]] = {'Creds': [], 'Passwords': []}
+                            credentials[aws_credentials[0]]['Creds'].append({
+                                'Access_Key_Id': aws_credentials[1],
+                                'Secret_Access_Key': aws_credentials[2]
+                            })
 
     # If there is more than one AWS key pair then display them using a menu, otherwise just select the one
     if len(credentials) > 1:

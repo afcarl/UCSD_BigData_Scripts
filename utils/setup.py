@@ -7,6 +7,7 @@ import csv
 import json
 from os.path import expanduser
 import boto.ec2
+from boto.s3.connection import S3Connection
 import socket
 import time
 import logging
@@ -100,6 +101,27 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
     return ec2_ssh_key_name, ec2_ssh_key_pair_file
 
 
+def get_s3_bucket(aws_user_name, aws_access_key_id, aws_secret_access_key):
+    logging.info("Looking for S3 Bucket")
+
+    s3_bucket_prefix_list = ["dse-", "cse-"]
+    s3_bucket = None
+
+    s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
+
+    for s3_bucket_prefix in s3_bucket_prefix_list:
+        logging.info("Checking S3 Bucket: %s%s" % (s3_bucket_prefix, aws_user_name))
+        try:
+            s3_conn.get_bucket("%s%s" % (s3_bucket_prefix, aws_user_name))
+            s3_bucket = "s3://%s%s/" % (s3_bucket_prefix, aws_user_name)
+            print "S3 Bucket found: %s" % s3_bucket
+            break
+        except boto.exception.S3ResponseError:
+            continue
+
+    return s3_bucket
+
+
 def collect_credentials():
     credentials = []
 
@@ -168,15 +190,16 @@ def collect_credentials():
 
 
 def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_key,
-                           ec2_ssh_key_name, ec2_ssh_key_pair_file):
+                          ec2_ssh_key_name, ec2_ssh_key_pair_file, s3_bucket):
     # Make sure all of the variables exist before trying to write them to
     # vault/credentials_file_name
     if ((aws_user_name is not None) and (aws_access_key_id is not None) and
             (aws_secret_access_key is not None) and (ec2_ssh_key_name is not None) and
             (ec2_ssh_key_pair_file is not None)):
-        print 'ID: %s, key_id: %s' % (aws_user_name, aws_access_key_id)
-        print 'ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s' % (ec2_ssh_key_name,
+        print "ID: %s, key_id: %s" % (aws_user_name, aws_access_key_id)
+        print "ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s" % (ec2_ssh_key_name,
                                                                    ec2_ssh_key_pair_file)
+        print "s3_bucket: %s" % s3_bucket
     else:
         logging.info("Undefined variable: user_id: %s, key_id: %s ec2_ssh_key_name: %s, "
                      "ec2_ssh_key_pair_file: %s" % (aws_user_name, aws_access_key_id,
@@ -220,9 +243,10 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
         print "Creating a new %s/%s" % (vault, credentials_file_name)
 
     # Add the new credentials
-    logging.info("Adding ID: %s, key_id: %s, ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s to %s"
+    logging.info("Adding ID: %s, key_id: %s, ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s "
+                 "s3_bucket: %s to %s"
                  % (aws_user_name, aws_access_key_id, ec2_ssh_key_name, ec2_ssh_key_pair_file,
-                    credentials_file_name))
+                    s3_bucket, credentials_file_name))
 
     credentials_json["student"] = dict()
     credentials_json["student"]["aws_user_name"] = aws_user_name
@@ -230,6 +254,7 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
     credentials_json["student"]["aws_secret_access_key"] = aws_secret_access_key
     credentials_json["student"]["ec2_ssh_key_name"] = ec2_ssh_key_name
     credentials_json["student"]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
+    credentials_json["student"]["s3_bucket"] = s3_bucket
 
     # Write the new vault/credentials_file_name
     with open("%s/%s" % (vault, credentials_file_name), 'w') as json_outfile:
@@ -303,7 +328,10 @@ if __name__ == "__main__":
     # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
     ec2_key_name, ec2_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
 
+    # Check S3 for valid user bucket
+    bucket = get_s3_bucket(user_id, key_id, secret_key)
+
     # Save the credentials to the user's Vault
-    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file)
+    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file, bucket)
 
     logging.info("setup.py finished")

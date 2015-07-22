@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-""" This is a script for collecting the credentials, 
-choosing one of them, and creating a pickle file to hold them """
 
 import sys
 import os
 from glob import glob
 import csv
-import pickle
+import json
 from os.path import expanduser
 import boto.ec2
 import socket
@@ -14,6 +12,8 @@ import time
 import logging
 import argparse
 import shutil
+
+credentials_file_name = "credentials.json"
 
 
 def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
@@ -161,8 +161,10 @@ def collect_credentials():
                     print "Found matching SSH key pair..."
                     need_ssh_key_pair = False
                     break
+    conn.close()
 
-    # Make sure all of the variables exist before trying to write them to vault/Creds.pkl
+    # Make sure all of the variables exist before trying to write them to
+    # vault/credentials_file_name
     if ((user_id is not None) and (key_id is not None) and (secret_key is not None) and
             (ssh_key_name is not None) and (ssh_key_pair_file is not None)):
         print 'ID: %s, key_id: %s' % (user_id, key_id)
@@ -172,56 +174,59 @@ def collect_credentials():
                      "ssh_key_pair_file: %s" % (user_id, key_id, ssh_key_name, ssh_key_pair_file))
         sys.exit("Undefined variable")
 
-    new_credentials = {}
-    # If a Creds.pkl file already exists, make a copy, read the non 'launcher' credentials
-    if os.path.isfile(vault + "/Creds.pkl"):
-        logging.info("Found existing %s/Creds.pkl" % vault)
-        # Make a copy of vault/Creds.pkl before making any changes
-        old_credentials = vault + "/Creds_%s.pkl" % str(int(time.time()))
-        try:
-            shutil.copyfile(vault + "/Creds.pkl", old_credentials)
-            logging.info("Copied %s/Creds.pkl to %s" % (vault, old_credentials))
-        except (IOError, EOFError):
-            logging.info("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
-            sys.exit("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
+    credentials_json = dict()
 
-        # Read the contents of vault/Creds.pkl
+    # If credentials_file_name already exists then make a copy of the file and copy the
+    # credentials that are not "student" credentials into the new credentials_file_name
+    if os.path.isfile("%s/%s" % (vault, credentials_file_name)):
+        logging.info("Found existing %s/%s" % (vault, credentials_file_name))
+        # Make a copy of vault/credentials_file_name before making any changes
+        credentials_file_copy = "%s/%s-%s" % (vault, credentials_file_name, str(int(time.time())))
         try:
-            pickle_file = open(vault + '/Creds.pkl', 'rb')
-            saved_credentials = pickle.load(pickle_file)
-            pickle_file.close()
-            logging.info("Reading %s/Creds.pkl" % vault)
-            print "Updating %s/Creds.pkl" % vault
+            shutil.copyfile("%s/%s" % (vault, credentials_file_name), credentials_file_copy)
+            logging.info("Copied %s/%s to %s" % (vault, credentials_file_name,
+                                                 credentials_file_copy))
         except (IOError, EOFError):
-            saved_credentials = {}
-            logging.info("Error reading %s/Creds.pkl" % vault)
-            print "Error reading %s/Creds.pkl" % vault
+            logging.info("Error copying %s/%s to %s" % (vault, credentials_file_name,
+                                                        credentials_file_copy))
+            sys.exit("Error copying %s/%s to %s" % (vault, credentials_file_name,
+                                                    credentials_file_copy))
 
-        # Add all the top level keys that are not launcher
-        for c in saved_credentials:
-            logging.info("Found top level key in Creds.pkl: %s" % c)
-            if not c == "launcher":
-                logging.info("Saving %s to Creds.pkl unchanged" % c)
-                new_credentials.update({c: saved_credentials[c]})
+        # Read the contents of vault/credentials_file_name
+        old_credentials_json = dict()
+        try:
+            with open("%s/%s" % (vault, credentials_file_name)) as old_credentials:
+                old_credentials_json = json.load(old_credentials)
+            logging.info("Reading old credentials in %s/%s" % (vault, credentials_file_name))
+        except (IOError, EOFError):
+            logging.info("Error reading %s/%s" % (vault, credentials_file_name))
+            print "Error reading %s/%s" % (vault, credentials_file_name)
+
+        # Add all the top level keys to credentials_json that are not "student"
+        for top_level_key in old_credentials_json:
+            if not top_level_key == "student":
+                credentials_json[top_level_key] = old_credentials_json[top_level_key]
     else:
-        logging.info("Creating a new %s/Creds.pkl" % vault)
-        print "Creating a new %s/Creds.pkl" % vault
+        logging.info("Creating a new %s/%s" % (vault, credentials_file_name))
+        print "Creating a new %s/%s" % (vault, credentials_file_name)
 
-    # Add the new launcher credentials
-    logging.info("Adding ID: %s, key_id: %s, ssh_key_name: %s, ssh_key_pair_file: %s to Creds.pkl" %
-                 (user_id, key_id, ssh_key_name, ssh_key_pair_file))
-    new_credentials.update({'launcher': {'ID': user_id,
-                            'key_id': key_id,
-                            'secret_key': secret_key,
-                            'ssh_key_name': ssh_key_name,
-                            'ssh_key_pair_file': ssh_key_pair_file}})
+    # Add the new credentials
+    logging.info("Adding ID: %s, key_id: %s, ssh_key_name: %s, ssh_key_pair_file: %s to %s" %
+                 (user_id, key_id, ssh_key_name, ssh_key_pair_file, credentials_file_name))
 
-    # Write the new vault/Creds.pkl
-    pickle_file = open(vault + '/Creds.pkl', 'wb')
-    pickle.dump(new_credentials, pickle_file)
-    pickle_file.close()
-    logging.info("Saved %s/Creds.pkl" % vault)
-    conn.close()
+    credentials_json["student"] = dict()
+    credentials_json["student"]["aws_user_name"] = user_id
+    credentials_json["student"]["aws_access_key_id"] = key_id
+    credentials_json["student"]["aws_secret_access_key"] = secret_key
+    credentials_json["student"]["aws_ssh_key_name"] = ssh_key_name
+    credentials_json["student"]["aws_ssh_key_pair_file"] = ssh_key_pair_file
+
+    # Write the new vault/credentials_file_name
+    with open("%s/%s" % (vault, credentials_file_name), 'w') as json_outfile:
+        json.dump(credentials_json, json_outfile, sort_keys=True, indent=4, separators=(',', ': '))
+    json_outfile.close()
+
+    logging.info("Saved %s/%s" % (vault, credentials_file_name))
 
 
 def clear_vault():

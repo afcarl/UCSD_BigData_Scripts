@@ -230,7 +230,7 @@ def collect_credentials():
 
 
 def clear_vault():
-    backup_directory = vault + "/" + "Vault_" + str(int(time.time()))
+    backup_directory = "%s/Vault_%s" % (vault, str(int(time.time())))
 
     os.makedirs(backup_directory)
     logging.info("Clearing Vault to %s" % backup_directory)
@@ -242,8 +242,8 @@ def clear_vault():
                 logging.info("Leaving Vault file: %s" % clear_vault_file)
             else:
                 logging.info("Moving Vault file: %s" % clear_vault_file)
-                os.rename(clear_vault_file, backup_directory + "/" + os.path.basename(str(clear_vault_file)))
-
+                os.rename(clear_vault_file,
+                          backup_directory + "/" + os.path.basename(str(clear_vault_file)))
     logging.info("Clearing Complete")
 
 
@@ -265,7 +265,9 @@ if __name__ == "__main__":
         os.makedirs(vault + "/logs")
 
     # Save a log to vault/logs/setup.log
-    logging.basicConfig(filename=vault + "/logs/setup.log", format='%(asctime)s %(message)s', level=logging.INFO)
+    logging.basicConfig(filename=vault + "/logs/setup.log",
+                        format='%(asctime)s %(message)s',
+                        level=logging.INFO)
 
     logging.info("setup.py started")
     logging.info("Vault: %s" % vault)
@@ -275,8 +277,8 @@ if __name__ == "__main__":
         logging.info("Found Vault file: %s" % vault_file)
 
     # Commandline Parameters
-    parser = argparse.ArgumentParser(description="This is a script for collecting the AWS credentials and creating " +
-                                                 "a pickle file to hold them ")
+    parser = argparse.ArgumentParser(description="setup.py: Collects the AWS credentials and "
+                                                 "stores them in json file.")
     parser.add_argument('-c', dest='clear', action='store_true', default=False,
                         help='Clear the Vault directory before running')
 

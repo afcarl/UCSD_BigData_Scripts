@@ -31,12 +31,12 @@ def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
         return False
 
 
-def get_ec2_ssh_key_pair(user_id, key_id, secret_key):
+def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key):
     try:
         # TODO: make us-east-1 variable
         conn = boto.ec2.connect_to_region("us-east-1",
-                                          aws_access_key_id=key_id,
-                                          aws_secret_access_key=secret_key)
+                                          aws_access_key_id=aws_access_key_id,
+                                          aws_secret_access_key=aws_secret_access_key)
     except Exception, e:
         logging.info("There was an error connecting to AWS: %s" % e)
         sys.exit("There was an error connecting to AWS: %s" % e)
@@ -55,7 +55,7 @@ def get_ec2_ssh_key_pair(user_id, key_id, secret_key):
         # If no pem_files exist in the vault then create one
         if len(pem_files) is 0:
             logging.info("No pem files found, generating a new SSH key pair")
-            ec2_ssh_key_name = "%s_%s_%s" % (str(user_id),
+            ec2_ssh_key_name = "%s_%s_%s" % (str(aws_user_name),
                                              str(socket.gethostname()),
                                              str(int(time.time())))
             try:
@@ -101,7 +101,6 @@ def get_ec2_ssh_key_pair(user_id, key_id, secret_key):
 
 
 def collect_credentials():
-
     credentials = []
 
     # Log the csv files found in the vault directory
@@ -163,24 +162,25 @@ def collect_credentials():
         logging.info("No AWS credentials found")
         sys.exit("No AWS credentials found.")
 
-    user_id = credentials[selected_credentials]["user_name"]
-    key_id = credentials[selected_credentials]["access_key_id"]
-    secret_key = credentials[selected_credentials]["secret_access_key"]
+    return credentials[selected_credentials]["user_name"], \
+        credentials[selected_credentials]["access_key_id"], \
+        credentials[selected_credentials]["secret_access_key"]
 
-    # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
-    ec2_ssh_key_name, ec2_ssh_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
 
+def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_key,
+                           ec2_ssh_key_name, ec2_ssh_key_pair_file):
     # Make sure all of the variables exist before trying to write them to
     # vault/credentials_file_name
-    if ((user_id is not None) and (key_id is not None) and (secret_key is not None) and
-            (ec2_ssh_key_name is not None) and (ec2_ssh_key_pair_file is not None)):
-        print 'ID: %s, key_id: %s' % (user_id, key_id)
+    if ((aws_user_name is not None) and (aws_access_key_id is not None) and
+            (aws_secret_access_key is not None) and (ec2_ssh_key_name is not None) and
+            (ec2_ssh_key_pair_file is not None)):
+        print 'ID: %s, key_id: %s' % (aws_user_name, aws_access_key_id)
         print 'ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s' % (ec2_ssh_key_name,
                                                                    ec2_ssh_key_pair_file)
     else:
         logging.info("Undefined variable: user_id: %s, key_id: %s ec2_ssh_key_name: %s, "
-                     "ec2_ssh_key_pair_file: %s" % (user_id, key_id, ec2_ssh_key_name,
-                                                    ec2_ssh_key_pair_file))
+                     "ec2_ssh_key_pair_file: %s" % (aws_user_name, aws_access_key_id,
+                                                    ec2_ssh_key_name, ec2_ssh_key_pair_file))
         sys.exit("Undefined variable")
 
     credentials_json = dict()
@@ -221,13 +221,13 @@ def collect_credentials():
 
     # Add the new credentials
     logging.info("Adding ID: %s, key_id: %s, ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s to %s"
-                 % (user_id, key_id, ec2_ssh_key_name, ec2_ssh_key_pair_file,
+                 % (aws_user_name, aws_access_key_id, ec2_ssh_key_name, ec2_ssh_key_pair_file,
                     credentials_file_name))
 
     credentials_json["student"] = dict()
-    credentials_json["student"]["aws_user_name"] = user_id
-    credentials_json["student"]["aws_access_key_id"] = key_id
-    credentials_json["student"]["aws_secret_access_key"] = secret_key
+    credentials_json["student"]["aws_user_name"] = aws_user_name
+    credentials_json["student"]["aws_access_key_id"] = aws_access_key_id
+    credentials_json["student"]["aws_secret_access_key"] = aws_secret_access_key
     credentials_json["student"]["ec2_ssh_key_name"] = ec2_ssh_key_name
     credentials_json["student"]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
 
@@ -297,6 +297,13 @@ if __name__ == "__main__":
     if args['clear']:
         clear_vault()
 
-    collect_credentials()
+    # Collect the AWS credentials stored in the Vault
+    user_id, key_id, secret_key = collect_credentials()
+
+    # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
+    ec2_key_name, ec2_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
+
+    # Save the credentials to the user's Vault
+    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file)
 
     logging.info("setup.py finished")

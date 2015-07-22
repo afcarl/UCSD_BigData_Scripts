@@ -16,12 +16,11 @@ import argparse
 import shutil
 
 
-def test_key_pair(aws_access_key_id, aws_secret_access_key):
+def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
+    conn = boto.ec2.connect_to_region("us-east-1",
+                                      aws_access_key_id=aws_access_key_id,
+                                      aws_secret_access_key=aws_secret_access_key)
     try:
-        conn = boto.ec2.connect_to_region("us-east-1",
-                                          aws_access_key_id=aws_access_key_id,
-                                          aws_secret_access_key=aws_secret_access_key)
-
         conn.get_all_regions()
         conn.close()
         logging.info("AWS Access Key ID and Access Key are correct: %s" % aws_access_key_id)
@@ -34,7 +33,7 @@ def test_key_pair(aws_access_key_id, aws_secret_access_key):
 
 def collect_credentials():
 
-    credentials = {}
+    credentials = []
 
     # Log the csv files found in the vault directory
     for csv_file in glob(vault + '/*.csv'):
@@ -48,47 +47,47 @@ def collect_credentials():
                 for aws_credentials in aws_credentials_list:
                     # skip the csv column header
                     if not aws_credentials[1] == "Access Key Id":
-                        if test_key_pair(aws_credentials[1], aws_credentials[2]):
-                            credentials[aws_credentials[0]] = {'Creds': [], 'Passwords': []}
-                            credentials[aws_credentials[0]]['Creds'].append({
-                                'Access_Key_Id': aws_credentials[1],
-                                'Secret_Access_Key': aws_credentials[2]
-                            })
+                        if test_aws_credentials(aws_credentials[1], aws_credentials[2]):
+                            credentials.append({'user_name': aws_credentials[0],
+                                                'access_key_id': aws_credentials[1],
+                                                'secret_access_key': aws_credentials[2]})
 
     # If there is more than one AWS key pair then display them using a menu,
     # otherwise just select the one
     if len(credentials) > 1:
-        credential_number = 1
+        credential_count = 1
 
         # Log the valid AWS credentials that are found
         logging.info("Multiple AWS credentials found:")
 
-        print "You have multiple AWS credentials in your vault. The usernames are listed below:\n"
+        print "You have multiple AWS credentials in your vault. The user names are listed below:\n"
 
         for credential in credentials:
             logging.info("AWS credential found: %s : %s" %
-                         (credential, credentials[credential]['Creds'][0]['Access_Key_Id']))
+                         (credential["user_name"], credential["access_key_id"]))
 
-            print "\t%s. %s (%s)" % (credential_number, credential,
-                                     credentials[credential]['Creds'][0]['Access_Key_Id'])
-            credential_number += 1
+            print "\t%s. %s (%s)" % (credential_count,
+                                     credential["user_name"],
+                                     credential["access_key_id"])
+            credential_count += 1
 
         user_input = raw_input("\nEnter the number next to the credentials you would like to use: ")
-        user_id = credentials.keys()[int(user_input) - 1]
-        logging.info("AWS credential selected: %s : %s" % (user_id,
-                                                           credentials[user_id]['Creds'][0]['Access_Key_Id']))
+        selected_credentials = int(user_input) - 1
+        logging.info("AWS credential selected: %s : %s" %
+                     (credentials[selected_credentials]["user_name"],
+                      credentials[selected_credentials]["access_key_id"]))
     elif len(credentials) == 1:
-        user_id = credentials.keys()[0]
-        logging.info("One AWS credential found and selected: %s : %s" % (user_id,
-                                                                         credentials.keys()[0]))
+        selected_credentials = 0
+        logging.info("One AWS credential found and selected: %s : %s" %
+                     (credentials[selected_credentials]["user_name"],
+                      credentials[selected_credentials]["access_key_id"]))
     else:
         logging.info("No AWS credentials found")
         sys.exit("No AWS credentials found.")
 
-    entry = credentials[user_id]
-
-    key_id = entry['Creds'][0]['Access_Key_Id']
-    secret_key = entry['Creds'][0]['Secret_Access_Key']
+    user_id = credentials[selected_credentials]["user_name"]
+    key_id = credentials[selected_credentials]["access_key_id"]
+    secret_key = credentials[selected_credentials]["secret_access_key"]
 
     try:
         # TODO: make us-east-1 variable

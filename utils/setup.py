@@ -45,7 +45,7 @@ def collect_credentials():
                 aws_credentials_list = list(reader)
 
                 for aws_credentials in aws_credentials_list:
-                    # skip the csv column header
+                    # Skip the csv column header
                     if not aws_credentials[1] == "Access Key Id":
                         if test_aws_credentials(aws_credentials[1], aws_credentials[2]):
                             credentials.append({'user_name': aws_credentials[0],
@@ -71,7 +71,7 @@ def collect_credentials():
                                      credential["access_key_id"])
             credential_count += 1
 
-        # make sure user_input is value
+        # Make sure user_input is value
         selected_credentials = None
         while selected_credentials is None:
             user_input = raw_input("\nEnter the number next to the credentials that "
@@ -121,23 +121,27 @@ def collect_credentials():
         # If no pem_files exist in the vault then create one
         if len(pem_files) is 0:
                 logging.info("No pem files found, generating a new SSH key pair")
-                ssh_key_name = str(user_id) + "_" + str(socket.gethostname()) + "_" + str(int(time.time()))
+                ssh_key_name = "%s_%s_%s" % (str(user_id),
+                                             str(socket.gethostname()),
+                                             str(int(time.time())))
                 try:
                     key = conn.create_key_pair(key_name=ssh_key_name)
                     key.save(vault)
                 except Exception, e:
-                    logging.info("There was an error generating and saving a new SSH key pair: %s" % e)
-                    sys.exit("There was an error generating and saving a new SSH key pair: %s" % e)
+                    logging.info("There was an error creating a new SSH key pair: %s" % e)
+                    sys.exit("There was an error creating a new SSH key pair: %s" % e)
                 ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
 
                 if os.path.isfile(ssh_key_pair_file):
                     print "SSH key pair created..."
-                    logging.info("SSH key pair created: %s : %s" % (ssh_key_name, ssh_key_pair_file))
+                    logging.info("SSH key pair created: %s : %s" % (ssh_key_name,
+                                                                    ssh_key_pair_file))
                     need_ssh_key_pair = False
                 else:
                     logging.info("Error creating SSH key pair")
                     sys.exit("Error creating SSH key pair")
-        # If pem_files exist in the vault the select the first one that matches the name of a ssh key pair on AWS
+        # If pem_files exist in the vault then select the first pem file that matches the name
+        # of a ssh key pair on AWS
         else:
             try:
                 aws_key_pairs = conn.get_all_key_pairs()
@@ -152,7 +156,8 @@ def collect_credentials():
 
                 # Verify the ssh_key_name matches a ssh_key on AWS
                 if any(ssh_key_name in k.name for k in aws_key_pairs):
-                    logging.info("Found matching SSH key pair: %s :  %s" % (ssh_key_name, ssh_key_pair_file))
+                    logging.info("Found matching SSH key pair: %s :  %s" % (ssh_key_name,
+                                                                            ssh_key_pair_file))
                     print "Found matching SSH key pair..."
                     need_ssh_key_pair = False
                     break

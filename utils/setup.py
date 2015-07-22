@@ -71,8 +71,17 @@ def collect_credentials():
                                      credential["access_key_id"])
             credential_count += 1
 
-        user_input = raw_input("\nEnter the number next to the credentials you would like to use: ")
-        selected_credentials = int(user_input) - 1
+        # make sure user_input is value
+        selected_credentials = None
+        while selected_credentials is None:
+            user_input = raw_input("\nEnter the number next to the credentials that "
+                                   "you would like to use: ")
+            try:
+                if 0 < int(user_input) <= len(credentials):
+                    selected_credentials = int(user_input) - 1
+            except ValueError:
+                continue
+
         logging.info("AWS credential selected: %s : %s" %
                      (credentials[selected_credentials]["user_name"],
                       credentials[selected_credentials]["access_key_id"]))

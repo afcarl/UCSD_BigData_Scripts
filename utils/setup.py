@@ -31,6 +31,75 @@ def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
         return False
 
 
+def get_ec2_ssh_key_pair(user_id, key_id, secret_key):
+    try:
+        # TODO: make us-east-1 variable
+        conn = boto.ec2.connect_to_region("us-east-1",
+                                          aws_access_key_id=key_id,
+                                          aws_secret_access_key=secret_key)
+    except Exception, e:
+        logging.info("There was an error connecting to AWS: %s" % e)
+        sys.exit("There was an error connecting to AWS: %s" % e)
+
+    # Generate or specify the SSH key pair
+    need_ssh_key_pair = True
+    ec2_ssh_key_name = None
+    ec2_ssh_key_pair_file = None
+    pem_files = glob(vault+'/*.pem')
+
+    # Log the pem files found in the vault directory
+    for pem_file in pem_files:
+        logging.info("Found pem file: %s" % pem_file)
+
+    while need_ssh_key_pair:
+        # If no pem_files exist in the vault then create one
+        if len(pem_files) is 0:
+            logging.info("No pem files found, generating a new SSH key pair")
+            ec2_ssh_key_name = "%s_%s_%s" % (str(user_id),
+                                             str(socket.gethostname()),
+                                             str(int(time.time())))
+            try:
+                key = conn.create_key_pair(key_name=ec2_ssh_key_name)
+                key.save(vault)
+            except Exception, e:
+                logging.info("There was an error creating a new SSH key pair: %s" % e)
+                sys.exit("There was an error creating a new SSH key pair: %s" % e)
+            ec2_ssh_key_pair_file = vault + "/" + ec2_ssh_key_name + ".pem"
+
+            if os.path.isfile(ec2_ssh_key_pair_file):
+                print "SSH key pair created..."
+                logging.info("SSH key pair created: %s : %s" % (ec2_ssh_key_name,
+                                                                ec2_ssh_key_pair_file))
+                need_ssh_key_pair = False
+            else:
+                logging.info("Error creating SSH key pair")
+                sys.exit("Error creating SSH key pair")
+        # If pem_files exist in the vault then select the first pem file that matches the name
+        # of a ssh key pair on AWS
+        else:
+            try:
+                aws_key_pairs = conn.get_all_key_pairs()
+            except Exception, e:
+                logging.info("There was an error getting the key pairs from AWS: %s" % e)
+                sys.exit("There was an error getting the key pairs from AWS: %s" % e)
+
+            for pem_file in pem_files:
+                logging.info("Checking %s for a match on AWS" % pem_file)
+                ec2_ssh_key_name = os.path.splitext(os.path.basename(str(pem_file)))[0]
+                ec2_ssh_key_pair_file = pem_file
+
+                # Verify the ec2_ssh_key_name matches a ssh_key on AWS
+                if any(ec2_ssh_key_name in k.name for k in aws_key_pairs):
+                    logging.info("Found matching SSH key pair: %s :  %s" % (ec2_ssh_key_name,
+                                                                            ec2_ssh_key_pair_file))
+                    print "Found matching SSH key pair..."
+                    need_ssh_key_pair = False
+                    break
+    conn.close()
+
+    return ec2_ssh_key_name, ec2_ssh_key_pair_file
+
+
 def collect_credentials():
 
     credentials = []
@@ -98,80 +167,20 @@ def collect_credentials():
     key_id = credentials[selected_credentials]["access_key_id"]
     secret_key = credentials[selected_credentials]["secret_access_key"]
 
-    try:
-        # TODO: make us-east-1 variable
-        conn = boto.ec2.connect_to_region("us-east-1",
-                                          aws_access_key_id=key_id,
-                                          aws_secret_access_key=secret_key)
-    except Exception, e:
-        logging.info("There was an error connecting to AWS: %s" % e)
-        sys.exit("There was an error connecting to AWS: %s" % e)
-
-    # Generate or specify the SSH key pair
-    need_ssh_key_pair = True
-    ssh_key_name = None
-    ssh_key_pair_file = None
-    pem_files = glob(vault+'/*.pem')
-
-    # Log the pem files found in the vault directory
-    for pem_file in pem_files:
-        logging.info("Found pem file: %s" % pem_file)
-
-    while need_ssh_key_pair:
-        # If no pem_files exist in the vault then create one
-        if len(pem_files) is 0:
-                logging.info("No pem files found, generating a new SSH key pair")
-                ssh_key_name = "%s_%s_%s" % (str(user_id),
-                                             str(socket.gethostname()),
-                                             str(int(time.time())))
-                try:
-                    key = conn.create_key_pair(key_name=ssh_key_name)
-                    key.save(vault)
-                except Exception, e:
-                    logging.info("There was an error creating a new SSH key pair: %s" % e)
-                    sys.exit("There was an error creating a new SSH key pair: %s" % e)
-                ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
-
-                if os.path.isfile(ssh_key_pair_file):
-                    print "SSH key pair created..."
-                    logging.info("SSH key pair created: %s : %s" % (ssh_key_name,
-                                                                    ssh_key_pair_file))
-                    need_ssh_key_pair = False
-                else:
-                    logging.info("Error creating SSH key pair")
-                    sys.exit("Error creating SSH key pair")
-        # If pem_files exist in the vault then select the first pem file that matches the name
-        # of a ssh key pair on AWS
-        else:
-            try:
-                aws_key_pairs = conn.get_all_key_pairs()
-            except Exception, e:
-                logging.info("There was an error getting the key pairs from AWS: %s" % e)
-                sys.exit("There was an error getting the key pairs from AWS: %s" % e)
-
-            for pem_file in pem_files:
-                logging.info("Checking %s for a match on AWS" % pem_file)
-                ssh_key_name = os.path.splitext(os.path.basename(str(pem_file)))[0]
-                ssh_key_pair_file = pem_file
-
-                # Verify the ssh_key_name matches a ssh_key on AWS
-                if any(ssh_key_name in k.name for k in aws_key_pairs):
-                    logging.info("Found matching SSH key pair: %s :  %s" % (ssh_key_name,
-                                                                            ssh_key_pair_file))
-                    print "Found matching SSH key pair..."
-                    need_ssh_key_pair = False
-                    break
-    conn.close()
+    # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
+    ec2_ssh_key_name, ec2_ssh_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
 
     # Make sure all of the variables exist before trying to write them to
     # vault/credentials_file_name
     if ((user_id is not None) and (key_id is not None) and (secret_key is not None) and
-            (ssh_key_name is not None) and (ssh_key_pair_file is not None)):
+            (ec2_ssh_key_name is not None) and (ec2_ssh_key_pair_file is not None)):
         print 'ID: %s, key_id: %s' % (user_id, key_id)
-        print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
+        print 'ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s' % (ec2_ssh_key_name,
+                                                                   ec2_ssh_key_pair_file)
     else:
-        logging.info("Undefined variable: user_id: %s, key_id: %s ssh_key_name: %s, "
-                     "ssh_key_pair_file: %s" % (user_id, key_id, ssh_key_name, ssh_key_pair_file))
+        logging.info("Undefined variable: user_id: %s, key_id: %s ec2_ssh_key_name: %s, "
+                     "ec2_ssh_key_pair_file: %s" % (user_id, key_id, ec2_ssh_key_name,
+                                                    ec2_ssh_key_pair_file))
         sys.exit("Undefined variable")
 
     credentials_json = dict()
@@ -211,15 +220,16 @@ def collect_credentials():
         print "Creating a new %s/%s" % (vault, credentials_file_name)
 
     # Add the new credentials
-    logging.info("Adding ID: %s, key_id: %s, ssh_key_name: %s, ssh_key_pair_file: %s to %s" %
-                 (user_id, key_id, ssh_key_name, ssh_key_pair_file, credentials_file_name))
+    logging.info("Adding ID: %s, key_id: %s, ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s to %s"
+                 % (user_id, key_id, ec2_ssh_key_name, ec2_ssh_key_pair_file,
+                    credentials_file_name))
 
     credentials_json["student"] = dict()
     credentials_json["student"]["aws_user_name"] = user_id
     credentials_json["student"]["aws_access_key_id"] = key_id
     credentials_json["student"]["aws_secret_access_key"] = secret_key
-    credentials_json["student"]["aws_ssh_key_name"] = ssh_key_name
-    credentials_json["student"]["aws_ssh_key_pair_file"] = ssh_key_pair_file
+    credentials_json["student"]["ec2_ssh_key_name"] = ec2_ssh_key_name
+    credentials_json["student"]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
 
     # Write the new vault/credentials_file_name
     with open("%s/%s" % (vault, credentials_file_name), 'w') as json_outfile:

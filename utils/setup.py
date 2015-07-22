@@ -163,13 +163,13 @@ def collect_credentials():
                     break
 
     # Make sure all of the variables exist before trying to write them to vault/Creds.pkl
-    if ((not user_id is None) and (not key_id is None) and (not secret_key is None) and (not ssh_key_name is None) and
-            (not ssh_key_pair_file is None)):
+    if ((user_id is not None) and (key_id is not None) and (secret_key is not None) and
+            (ssh_key_name is not None) and (ssh_key_pair_file is not None)):
         print 'ID: %s, key_id: %s' % (user_id, key_id)
         print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
     else:
-        logging.info("Undefined variable: user_id: %s, key_id: %s ssh_key_name: %s, ssh_key_pair_file: %s" %
-                     (user_id, key_id, ssh_key_name, ssh_key_pair_file))
+        logging.info("Undefined variable: user_id: %s, key_id: %s ssh_key_name: %s, "
+                     "ssh_key_pair_file: %s" % (user_id, key_id, ssh_key_name, ssh_key_pair_file))
         sys.exit("Undefined variable")
 
     new_credentials = {}

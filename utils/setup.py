@@ -15,6 +15,7 @@ import argparse
 import shutil
 
 credentials_file_name = "credentials.json"
+emr_ssh_key_pair_file_name = "emr-shared-key.pem"
 
 
 def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
@@ -51,6 +52,11 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
     # Log the pem files found in the vault directory
     for pem_file in pem_files:
         logging.info("Found pem file: %s" % pem_file)
+
+        # Remove the emr_ssh_key_pair_file from this list of pem files
+        if emr_ssh_key_pair_file_name in pem_file:
+            logging.info("Removing pem file from the list: %s" % pem_file)
+            pem_files.remove(pem_file)
 
     while need_ssh_key_pair:
         # If no pem_files exist in the vault then create one
@@ -102,7 +108,7 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
 
 
 def get_s3_bucket(aws_user_name, aws_access_key_id, aws_secret_access_key):
-    logging.info("Looking for S3 Bucket")
+    logging.info("Looking for the student's S3 Bucket")
 
     s3_bucket_prefix_list = ["dse-", "cse-"]
     s3_bucket = None
@@ -110,16 +116,47 @@ def get_s3_bucket(aws_user_name, aws_access_key_id, aws_secret_access_key):
     s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
 
     for s3_bucket_prefix in s3_bucket_prefix_list:
-        logging.info("Checking S3 Bucket: %s%s" % (s3_bucket_prefix, aws_user_name))
+        logging.info("Checking Student S3 Bucket: %s%s" % (s3_bucket_prefix, aws_user_name))
         try:
             s3_conn.get_bucket("%s%s" % (s3_bucket_prefix, aws_user_name))
             s3_bucket = "s3://%s%s/" % (s3_bucket_prefix, aws_user_name)
-            print "S3 Bucket found: %s" % s3_bucket
+            print "Student S3 Bucket found: %s" % s3_bucket
             break
         except boto.exception.S3ResponseError:
+            logging.info("Student S3 Bucket NOT found: %s" % s3_bucket)
             continue
 
     return s3_bucket
+
+
+def get_emr_ssh_key_pair(aws_access_key_id, aws_secret_access_key):
+    logging.info("Looking for EMR S3 Bucket")
+
+    s3_bucket_list = ["mas-dse-emr", "cse-emr"]
+    emr_ssh_key_pair_file = None
+
+    s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
+
+    for s3_bucket in s3_bucket_list:
+        logging.info("Checking EMR S3 Bucket: %s" % s3_bucket)
+        try:
+            emr_bucket = s3_conn.get_bucket("%s" % s3_bucket)
+            logging.info("EMR S3 Bucket found: %s" % s3_bucket)
+            key = emr_bucket.get_key(emr_ssh_key_pair_file_name)
+            logging.info("EMR SSH Key Found in S3 Bucket: %s/%s" % (s3_bucket,
+                                                                    emr_ssh_key_pair_file_name))
+            key.get_contents_to_filename("%s/%s" % (vault, emr_ssh_key_pair_file_name))
+            logging.info("EMR SSH Key downloaded to: %s/%s" % (vault, emr_ssh_key_pair_file_name))
+
+            if os.path.isfile("%s/%s" % (vault, emr_ssh_key_pair_file_name)):
+                emr_ssh_key_pair_file = "%s/%s" % (vault, emr_ssh_key_pair_file_name)
+                logging.info("EMR SSH Key found at: %s" % emr_ssh_key_pair_file)
+            break
+        except boto.exception.S3ResponseError, emr_error:
+            logging.info("EMR S3 Error: %s" % emr_error)
+            continue
+
+    return emr_ssh_key_pair_file
 
 
 def collect_credentials():
@@ -190,7 +227,8 @@ def collect_credentials():
 
 
 def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_key,
-                          ec2_ssh_key_name, ec2_ssh_key_pair_file, s3_bucket):
+                          ec2_ssh_key_name, ec2_ssh_key_pair_file, s3_bucket,
+                          emr_ssh_key_pair_file):
     # Make sure all of the variables exist before trying to write them to
     # vault/credentials_file_name
     if ((aws_user_name is not None) and (aws_access_key_id is not None) and
@@ -255,6 +293,7 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
     credentials_json["student"]["ec2_ssh_key_name"] = ec2_ssh_key_name
     credentials_json["student"]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
     credentials_json["student"]["s3_bucket"] = s3_bucket
+    credentials_json["student"]["emr_ssh_key_pair_file"] = emr_ssh_key_pair_file
 
     # Write the new vault/credentials_file_name
     with open("%s/%s" % (vault, credentials_file_name), 'w') as json_outfile:
@@ -328,10 +367,14 @@ if __name__ == "__main__":
     # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
     ec2_key_name, ec2_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
 
-    # Check S3 for valid user bucket
-    bucket = get_s3_bucket(user_id, key_id, secret_key)
+    # Check S3 for valid student bucket
+    student_bucket = get_s3_bucket(user_id, key_id, secret_key)
+
+    # Download the shared EMR ssh key
+    emr_key_pair_file = get_emr_ssh_key_pair(key_id, secret_key)
 
     # Save the credentials to the user's Vault
-    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file, bucket)
+    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file,
+                          student_bucket, emr_key_pair_file)
 
     logging.info("setup.py finished")

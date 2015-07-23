@@ -15,6 +15,7 @@ import argparse
 import shutil
 
 credentials_file_name = "credentials.json"
+emr_ssh_key_pair_name = "emr-shared-key"
 emr_ssh_key_pair_file_name = "emr-shared-key.pem"
 
 
@@ -303,6 +304,32 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
     logging.info("Saved %s/%s" % (vault, credentials_file_name))
 
 
+def create_mrjob_conf(aws_user_name, aws_access_key_id, aws_secret_access_key, s3_bucket,
+                      emr_ssh_key_pair_file):
+    # Create ~/.mrjob.conf with AWS credentials
+    s3_scratch_uri = "%stmp/" % s3_bucket
+    s3_log_uri = "%slog/" % s3_bucket
+
+    logging.info("Creating ~/.mrjob.conf")
+    template = open('mrjob.conf.template').read()
+
+    filled_template = template % (aws_user_name, aws_user_name, aws_access_key_id,
+                                  aws_secret_access_key, s3_scratch_uri, s3_log_uri,
+                                  emr_ssh_key_pair_name, emr_ssh_key_pair_file)
+    logging.info("~/.mrjob.conf template filled")
+
+    home = os.environ['HOME']
+    mrjob_outfile = "%s/.mrjob.conf" % home
+
+    try:
+        open(mrjob_outfile, 'wb').write(filled_template)
+        logging.info("Wrote: %s" % mrjob_outfile)
+        print "Wrote: %s" % mrjob_outfile
+    except (IOError, EOFError):
+        logging.info("Error writing to %s" % mrjob_outfile)
+        sys.exit("Error writing to %s" % mrjob_outfile)
+
+
 def clear_vault():
     backup_directory = "%s/Vault_%s" % (vault, str(int(time.time())))
 
@@ -376,5 +403,8 @@ if __name__ == "__main__":
     # Save the credentials to the user's Vault
     save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file,
                           student_bucket, emr_key_pair_file)
+
+    # Save the credientals to the user's ~/.mrjob.conf
+    create_mrjob_conf(user_id, key_id, secret_key, student_bucket, emr_key_pair_file)
 
     logging.info("setup.py finished")

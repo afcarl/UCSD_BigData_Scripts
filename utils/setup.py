@@ -236,7 +236,7 @@ def collect_credentials():
         credentials[selected_credentials]["secret_access_key"]
 
 
-def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_key,
+def save_credentials_json(json_object_name, aws_user_name, aws_access_key_id, aws_secret_access_key,
                           ec2_ssh_key_name, ec2_ssh_key_pair_file, s3_bucket,
                           emr_ssh_key_pair_file):
     # Make sure all of the variables exist before trying to write them to
@@ -256,7 +256,7 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
     credentials_json = dict()
 
     # If credentials_file_name already exists then make a copy of the file and copy the
-    # credentials that are not "student" credentials into the new credentials_file_name
+    # credentials that are not json_object_name credentials into the new credentials_file_name
     if os.path.isfile("%s/%s" % (vault, credentials_file_name)):
         logging.info("Found existing %s/%s" % (vault, credentials_file_name))
         # Make a copy of vault/credentials_file_name before making any changes
@@ -281,28 +281,29 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
             logging.info("Error reading %s/%s" % (vault, credentials_file_name))
             print "Error reading %s/%s" % (vault, credentials_file_name)
 
-        # Add all the top level keys to credentials_json that are not "student"
+        # Add all the top level keys to credentials_json that are not json_object_name
         for top_level_key in old_credentials_json:
-            if not top_level_key == "student":
+            if not top_level_key == json_object_name:
                 credentials_json[top_level_key] = old_credentials_json[top_level_key]
     else:
         logging.info("Creating a new %s/%s" % (vault, credentials_file_name))
         print "Creating a new %s/%s" % (vault, credentials_file_name)
 
     # Add the new credentials
-    logging.info("Adding ID: %s, key_id: %s, ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s "
-                 "s3_bucket: %s to %s"
-                 % (aws_user_name, aws_access_key_id, ec2_ssh_key_name, ec2_ssh_key_pair_file,
-                    s3_bucket, credentials_file_name))
+    logging.info("Adding json_object_name: %s, aws_user_name: %s, aws_access_key_id: %s, "
+                 "ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s s3_bucket: %s, "
+                 "emr_ssh_key_pair_file: %s to %s"
+                 % (json_object_name, aws_user_name, aws_access_key_id, ec2_ssh_key_name,
+                    ec2_ssh_key_pair_file, s3_bucket, emr_ssh_key_pair_file, credentials_file_name))
 
-    credentials_json["student"] = dict()
-    credentials_json["student"]["aws_user_name"] = aws_user_name
-    credentials_json["student"]["aws_access_key_id"] = aws_access_key_id
-    credentials_json["student"]["aws_secret_access_key"] = aws_secret_access_key
-    credentials_json["student"]["ec2_ssh_key_name"] = ec2_ssh_key_name
-    credentials_json["student"]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
-    credentials_json["student"]["s3_bucket"] = s3_bucket
-    credentials_json["student"]["emr_ssh_key_pair_file"] = emr_ssh_key_pair_file
+    credentials_json[json_object_name] = dict()
+    credentials_json[json_object_name]["aws_user_name"] = aws_user_name
+    credentials_json[json_object_name]["aws_access_key_id"] = aws_access_key_id
+    credentials_json[json_object_name]["aws_secret_access_key"] = aws_secret_access_key
+    credentials_json[json_object_name]["ec2_ssh_key_name"] = ec2_ssh_key_name
+    credentials_json[json_object_name]["ec2_ssh_key_pair_file"] = ec2_ssh_key_pair_file
+    credentials_json[json_object_name]["s3_bucket"] = s3_bucket
+    credentials_json[json_object_name]["emr_ssh_key_pair_file"] = emr_ssh_key_pair_file
 
     # Write the new vault/credentials_file_name
     with open("%s/%s" % (vault, credentials_file_name), 'w') as json_outfile:
@@ -390,7 +391,10 @@ if __name__ == "__main__":
                                                  "stores them in json file.")
     parser.add_argument('-c', dest='clear', action='store_true', default=False,
                         help='Clear the Vault directory before running')
-    parser.add_argument('-r', dest='region', action='store', type=str, default="us-east-1")
+    parser.add_argument('-r', dest='region', action='store', type=str, default="us-east-1",
+                        help='The AWS region where the EC2 ssh key pair is created in')
+    parser.add_argument('-o', dest='json_object_name', action='store', type=str, default="student",
+                        help='The name of the JSON object used to store the credentials')
 
     args = vars(parser.parse_args())
 
@@ -411,8 +415,8 @@ if __name__ == "__main__":
     emr_key_pair_file = get_emr_ssh_key_pair(key_id, secret_key)
 
     # Save the credentials to the user's Vault
-    save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file,
-                          student_bucket, emr_key_pair_file)
+    save_credentials_json(args['json_object_name'], user_id, key_id, secret_key, ec2_key_name,
+                          ec2_key_pair_file, student_bucket, emr_key_pair_file)
 
     # Save the credentials to the user's ~/.mrjob.conf
     create_mrjob_conf(user_id, key_id, secret_key, student_bucket, emr_key_pair_file)

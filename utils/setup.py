@@ -33,10 +33,9 @@ def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
         return False
 
 
-def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key):
+def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key, region):
     try:
-        # TODO: make us-east-1 variable
-        ec2_conn = boto.ec2.connect_to_region("us-east-1",
+        ec2_conn = boto.ec2.connect_to_region(region,
                                               aws_access_key_id=aws_access_key_id,
                                               aws_secret_access_key=aws_secret_access_key)
     except Exception, e:
@@ -105,6 +104,10 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
                     print "Found matching SSH key pair..."
                     need_ssh_key_pair = False
                     break
+                else:
+                    # If the pem_file is not in EC2 then remove it from pem_files to get
+                    # len(pem_files) to 0 trigger the creation of a new ssh key pair
+                    pem_files.remove(pem_file)
     ec2_conn.close()
 
     return ec2_ssh_key_name, ec2_ssh_key_pair_file
@@ -387,6 +390,7 @@ if __name__ == "__main__":
                                                  "stores them in json file.")
     parser.add_argument('-c', dest='clear', action='store_true', default=False,
                         help='Clear the Vault directory before running')
+    parser.add_argument('-r', dest='region', action='store', type=str, default="us-east-1")
 
     args = vars(parser.parse_args())
 
@@ -397,7 +401,8 @@ if __name__ == "__main__":
     user_id, key_id, secret_key = collect_credentials()
 
     # Get the EC2 ssh key pair from the Vault or generate a new ssh key pair
-    ec2_key_name, ec2_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key)
+    ec2_key_name, ec2_key_pair_file = get_ec2_ssh_key_pair(user_id, key_id, secret_key,
+                                                           args['region'])
 
     # Check S3 for valid student bucket
     student_bucket = get_s3_bucket(user_id, key_id, secret_key)

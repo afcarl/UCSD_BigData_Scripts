@@ -20,8 +20,9 @@ emr_ssh_key_pair_file_name = "emr-shared-key.pem"
 
 
 def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
+    s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
+
     try:
-        s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
         s3_conn.get_all_buckets()
         logging.info("AWS Access Key ID and Access Key are correct: %s" % aws_access_key_id)
         s3_conn.close()
@@ -39,14 +40,14 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
                                               aws_access_key_id=aws_access_key_id,
                                               aws_secret_access_key=aws_secret_access_key)
     except Exception, e:
-        logging.info("There was an error connecting to AWS: %s" % e)
-        sys.exit("There was an error connecting to AWS: %s" % e)
+        logging.info("There was an error connecting to EC2: %s" % e)
+        return None, None
 
     # Generate or specify the SSH key pair
     need_ssh_key_pair = True
     ec2_ssh_key_name = None
     ec2_ssh_key_pair_file = None
-    pem_files = glob(vault+'/*.pem')
+    pem_files = glob(vault + '/*.pem')
 
     # Log the pem files found in the vault directory
     for pem_file in pem_files:
@@ -68,8 +69,10 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
                 key = ec2_conn.create_key_pair(key_name=ec2_ssh_key_name)
                 key.save(vault)
             except Exception, e:
+                ec2_conn.close()
                 logging.info("There was an error creating a new SSH key pair: %s" % e)
-                sys.exit("There was an error creating a new SSH key pair: %s" % e)
+                return None, None
+
             ec2_ssh_key_pair_file = vault + "/" + ec2_ssh_key_name + ".pem"
 
             if os.path.isfile(ec2_ssh_key_pair_file):
@@ -86,8 +89,9 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
             try:
                 aws_key_pairs = ec2_conn.get_all_key_pairs()
             except Exception, e:
+                ec2_conn.close()
                 logging.info("There was an error getting the key pairs from AWS: %s" % e)
-                sys.exit("There was an error getting the key pairs from AWS: %s" % e)
+                return None, None
 
             for pem_file in pem_files:
                 logging.info("Checking %s for a match on AWS" % pem_file)
@@ -235,12 +239,11 @@ def save_credentials_json(aws_user_name, aws_access_key_id, aws_secret_access_ke
     # Make sure all of the variables exist before trying to write them to
     # vault/credentials_file_name
     if ((aws_user_name is not None) and (aws_access_key_id is not None) and
-            (aws_secret_access_key is not None) and (ec2_ssh_key_name is not None) and
-            (ec2_ssh_key_pair_file is not None)):
+            (aws_secret_access_key is not None)):
         print "ID: %s, key_id: %s" % (aws_user_name, aws_access_key_id)
         print "ec2_ssh_key_name: %s, ec2_ssh_key_pair_file: %s" % (ec2_ssh_key_name,
                                                                    ec2_ssh_key_pair_file)
-        print "s3_bucket: %s" % s3_bucket
+        print "s3_bucket: %s, emr_ssh_key_pair_file: %s" % (s3_bucket, emr_ssh_key_pair_file)
     else:
         logging.info("Undefined variable: user_id: %s, key_id: %s ec2_ssh_key_name: %s, "
                      "ec2_ssh_key_pair_file: %s" % (aws_user_name, aws_access_key_id,
@@ -406,7 +409,7 @@ if __name__ == "__main__":
     save_credentials_json(user_id, key_id, secret_key, ec2_key_name, ec2_key_pair_file,
                           student_bucket, emr_key_pair_file)
 
-    # Save the credientals to the user's ~/.mrjob.conf
+    # Save the credentials to the user's ~/.mrjob.conf
     create_mrjob_conf(user_id, key_id, secret_key, student_bucket, emr_key_pair_file)
 
     logging.info("setup.py finished")

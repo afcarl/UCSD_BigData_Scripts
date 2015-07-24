@@ -20,16 +20,14 @@ emr_ssh_key_pair_file_name = "emr-shared-key.pem"
 
 
 def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
-    conn = boto.ec2.connect_to_region("us-east-1",
-                                      aws_access_key_id=aws_access_key_id,
-                                      aws_secret_access_key=aws_secret_access_key)
     try:
-        conn.get_all_regions()
-        conn.close()
+        s3_conn = S3Connection(aws_access_key_id, aws_secret_access_key)
+        s3_conn.get_all_buckets()
         logging.info("AWS Access Key ID and Access Key are correct: %s" % aws_access_key_id)
+        s3_conn.close()
         return True
-    except boto.ec2.EC2Connection.ResponseError:
-        conn.close()
+    except boto.exception.S3ResponseError:
+        s3_conn.close()
         logging.info("WARN: AWS Access Key ID and Access Key are incorrect: %s" % aws_access_key_id)
         return False
 
@@ -37,9 +35,9 @@ def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
 def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key):
     try:
         # TODO: make us-east-1 variable
-        conn = boto.ec2.connect_to_region("us-east-1",
-                                          aws_access_key_id=aws_access_key_id,
-                                          aws_secret_access_key=aws_secret_access_key)
+        ec2_conn = boto.ec2.connect_to_region("us-east-1",
+                                              aws_access_key_id=aws_access_key_id,
+                                              aws_secret_access_key=aws_secret_access_key)
     except Exception, e:
         logging.info("There was an error connecting to AWS: %s" % e)
         sys.exit("There was an error connecting to AWS: %s" % e)
@@ -67,7 +65,7 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
                                              str(socket.gethostname()),
                                              str(int(time.time())))
             try:
-                key = conn.create_key_pair(key_name=ec2_ssh_key_name)
+                key = ec2_conn.create_key_pair(key_name=ec2_ssh_key_name)
                 key.save(vault)
             except Exception, e:
                 logging.info("There was an error creating a new SSH key pair: %s" % e)
@@ -86,7 +84,7 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
         # of a ssh key pair on AWS
         else:
             try:
-                aws_key_pairs = conn.get_all_key_pairs()
+                aws_key_pairs = ec2_conn.get_all_key_pairs()
             except Exception, e:
                 logging.info("There was an error getting the key pairs from AWS: %s" % e)
                 sys.exit("There was an error getting the key pairs from AWS: %s" % e)
@@ -103,7 +101,7 @@ def get_ec2_ssh_key_pair(aws_user_name, aws_access_key_id, aws_secret_access_key
                     print "Found matching SSH key pair..."
                     need_ssh_key_pair = False
                     break
-    conn.close()
+    ec2_conn.close()
 
     return ec2_ssh_key_name, ec2_ssh_key_pair_file
 
@@ -126,6 +124,8 @@ def get_s3_bucket(aws_user_name, aws_access_key_id, aws_secret_access_key):
         except boto.exception.S3ResponseError:
             logging.info("Student S3 Bucket NOT found: %s" % s3_bucket)
             continue
+
+    s3_conn.close()
 
     return s3_bucket
 
@@ -156,6 +156,8 @@ def get_emr_ssh_key_pair(aws_access_key_id, aws_secret_access_key):
         except boto.exception.S3ResponseError, emr_error:
             logging.info("EMR S3 Error: %s" % emr_error)
             continue
+
+    s3_conn.close()
 
     return emr_ssh_key_pair_file
 

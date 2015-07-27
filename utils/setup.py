@@ -192,21 +192,18 @@ def collect_credentials():
     # If there is more than one AWS key pair then display them using a menu,
     # otherwise just select the one
     if len(credentials) > 1:
-        credential_count = 1
-
         # Log the valid AWS credentials that are found
         logging.info("Multiple AWS credentials found:")
 
         print "You have multiple AWS credentials in your vault. The user names are listed below:\n"
 
-        for credential in credentials:
+        for position, credential in enumerate(credentials):
             logging.info("AWS credential found: %s : %s" %
                          (credential["user_name"], credential["access_key_id"]))
 
-            print "\t%s. %s (%s)" % (credential_count,
+            print "\t%s. %s (%s)" % (position + 1,
                                      credential["user_name"],
                                      credential["access_key_id"])
-            credential_count += 1
 
         # Make sure user_input is value
         selected_credentials = None

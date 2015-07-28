@@ -5,7 +5,6 @@ import os
 from glob import glob
 import csv
 import json
-from os.path import expanduser
 import boto.ec2
 from boto.s3.connection import S3Connection
 import socket
@@ -13,6 +12,7 @@ import time
 import logging
 import argparse
 import shutil
+from ucsd_bigdata_scripts.vault import Vault
 
 credentials_file_name = "credentials.json"
 emr_ssh_key_pair_name = "emr-shared-key"
@@ -317,7 +317,7 @@ def create_mrjob_conf(aws_user_name, aws_access_key_id, aws_secret_access_key, s
     s3_log_uri = "%slog/" % s3_bucket
 
     logging.info("Creating ~/.mrjob.conf")
-    template = open('mrjob.conf.template').read()
+    template = open('templates/mrjob.conf').read()
 
     filled_template = template % (aws_user_name, aws_user_name, aws_access_key_id,
                                   aws_secret_access_key, s3_scratch_uri, s3_log_uri,
@@ -355,17 +355,9 @@ def clear_vault():
 
 
 if __name__ == "__main__":
-    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-    try:
-        os.environ['EC2_VAULT']
-    except KeyError:
-        vault = expanduser("~") + '/Vault'
-    else:
-        vault = os.environ['EC2_VAULT']
 
-    # Exit if no vault directory is found
-    if not os.path.isdir(vault):
-        sys.exit("Vault directory not found.")
+    my_vault = Vault()
+    vault = my_vault.path
 
     # Create a logs directory in the vault directory if one does not exist
     if not os.path.exists(vault + "/logs"):

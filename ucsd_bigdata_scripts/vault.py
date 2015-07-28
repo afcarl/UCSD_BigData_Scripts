@@ -24,6 +24,10 @@ class Vault:
                 print "%s is not valid json" % self.vault_config
                 sys.exit()
 
+        # Exit if no vault directory is found
+        if not os.path.isdir(path):
+            sys.exit("Vault directory not found.")
+
         return path
 
     def set(self, path):

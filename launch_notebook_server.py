@@ -253,14 +253,14 @@ def send_command(command, stderr_call_back=empty_call_back, stdout_call_back=emp
     return return_variable
 
 
-def launch_notebook(notebook_name=''):
+def launch_notebook(vault_path, notebook_name=''):
     command = ["scripts/launch_notebook.py", notebook_name]
 
     # If vault/notebook_pass.txt exists, send the hashed contents of the file to AWS
-    if os.path.isfile(vault + "/notebook_pass.txt"):
-        logging.info("Found %s/notebook_pass.txt" % vault)
+    if os.path.isfile("%s/notebook_pass.txt" % vault_path):
+        logging.info("Found %s/notebook_pass.txt" % vault_path)
 
-        f = open(vault + "/notebook_pass.txt", "r")
+        f = open("%s/notebook_pass.txt" % vault_path, "r")
         notebook_pass = f.read().rstrip()
         logging.info("notebook_pass.txt: %s" % notebook_pass)
         f.close()
@@ -370,12 +370,12 @@ def check_security_groups():
     return c_security_groups
 
 
-def checkout_private_repository():
+def checkout_private_repository(vault_path):
     logging.info("Got new_instance, attempting to checkout the student's private repository")
 
     # Verify vault/github_id_rsa exists since it is needed to clone the student's private repository
-    if os.path.isfile(vault + "/github_id_rsa"):
-        logging.info("Found: %s/github_id_rsa" % vault)
+    if os.path.isfile("%s/github_id_rsa" % vault_path):
+        logging.info("Found: %s/github_id_rsa" % vault_path)
 
         # Function to parse the output of the test_ssh_available command
         def parse_test_ssh_available_response(response):
@@ -403,7 +403,7 @@ def checkout_private_repository():
         print "Copying GitHub SSH key to EC2 Instance"
 
         # Copy vault/github_id_rsa to the EC2 instance
-        copy_credentials(vault + "/github_id_rsa")
+        copy_credentials("%s/github_id_rsa" % vault_path)
 
         logging.info("Checking out git@github.com:mas-dse/%s.git on the EC2 instance" % user_name)
         print "Checking out git@github.com:mas-dse/%s.git on the EC2 instance" % user_name
@@ -412,9 +412,9 @@ def checkout_private_repository():
         send_command(command)
     else:
         logging.info("Did not find: %s/github_id_rsa, not attempting to checkout the private repository on the"
-                     "EC2 instance." % vault)
+                     "EC2 instance." % vault_path)
         print "Did not find: %s/github_id_rsa, not attempting to checkout the private repository on the EC2 " \
-              "instance." % vault
+              "instance." % vault_path
 
 
 if __name__ == "__main__":
@@ -575,7 +575,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) == 1 or new_instance:
         if new_instance:
-            checkout_private_repository()
+            checkout_private_repository(vault.path)
 
         logging.info("Instance Ready!")
         print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
@@ -592,7 +592,7 @@ if __name__ == "__main__":
         sys.exit()
 
     if args['collection']:
-        launch_notebook(args['collection'])
+        launch_notebook(vault.path, args['collection'])
 
     if args['create_image']:
         print "creating a new AMI called %s" % args['create_image']

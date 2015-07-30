@@ -8,12 +8,11 @@ import json
 class Vault:
 
     def __init__(self):
-        self.home = os.environ['HOME']
-        self.vault_config = "%s/.vault" % self.home
+        self.vault_config = "%s/.vault" % os.environ['HOME']
         self.path = Vault.get(self)
 
     def get(self):
-        path = "%s/Vault" % self.home
+        path = "%s/Vault" % os.environ['HOME']
 
         if os.path.isfile(self.vault_config):
             try:

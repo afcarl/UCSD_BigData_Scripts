@@ -4,7 +4,6 @@
 # ### Definitions of procedures ###
 import boto.ec2
 import time
-import pickle
 import subprocess
 import sys
 import os
@@ -12,13 +11,14 @@ import re
 import webbrowser
 import select
 import argparse
-from os.path import expanduser
 import json
 from urllib2 import urlopen
 import dateutil.parser
 import datetime
 import logging
 from IPython.lib import passwd
+from ucsd_bigdata_scripts.vault import Vault
+from ucsd_bigdata_scripts.credentials import Credentials
 
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
@@ -26,51 +26,6 @@ ami_owner_id = '846273844940'
 ami_name = 'DSE200HVM'
 login_id = 'ubuntu'
 new_instance = False
-
-
-def read_credentials(c_vault):
-    # Read credentials from vault/Creds.pkl
-    try:
-        logging.info("(RC) Reading credentials from %s/Creds.pkl" % c_vault)
-        p_credentials_path = c_vault + '/Creds.pkl'
-        p_credentials_file = open(p_credentials_path)
-        p = pickle.load(p_credentials_file)
-        credentials = p['launcher']
-    except Exception, e:
-        print e
-        logging.info("(RC) Could not read %s/Creds.pkl" % c_vault)
-        sys.exit("Could not read %s/Creds.pkl" % c_vault)
-
-    for c in credentials:
-        if c == "key_id":
-            p_aws_access_key_id = credentials['key_id']
-            logging.info("(RC) Found aws_access_key_id: %s" % p_aws_access_key_id)
-        elif c == "secret_key":
-            p_aws_secret_access_key = credentials['secret_key']
-            logging.info("(RC) Found aws_secret_access_key: ...")
-        elif c == "ID":
-            p_user_name = credentials['ID']
-            logging.info("(RC) Found user_name: %s" % p_user_name)
-        elif c == "ssh_key_pair_file":
-            p_key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
-            logging.info("(RC) Found key_pair_file: %s" % p_key_pair_file)
-        elif c == "ssh_key_name":
-            p_key_name = credentials['ssh_key_name']              # name of keypair on AWS
-            logging.info("(RC) Found key_name: %s" % p_key_name)
-
-    # These credentials are required to be set before proceeding
-    try:
-        p_credentials_path
-        p_aws_access_key_id
-        p_aws_secret_access_key
-        p_user_name
-        p_key_pair_file
-        p_key_name
-    except NameError, e:
-        logging.info("(RC) Not all of the credentials were defined: %s" % e)
-        sys.exit("Not all of the credentials were defined: %s" % e)
-
-    return p_credentials_path, p_aws_access_key_id, p_aws_secret_access_key, p_user_name, p_key_pair_file, p_key_name
 
 
 # Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
@@ -496,30 +451,26 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-    try:
-        os.environ['EC2_VAULT']
-    except KeyError:
-        vault = expanduser("~") + '/Vault'
-    else:
-        vault = os.environ['EC2_VAULT']
-
-    # Exit if no vault directory is found
-    if not os.path.isdir(vault):
-        sys.exit("Vault directory not found.")
+    vault = Vault()
 
     # Create a logs directory in the vault directory if one does not exist
-    if not os.path.exists(vault + "/logs"):
-        os.makedirs(vault + "/logs")
+    if not os.path.exists(vault.path + "/logs"):
+        os.makedirs(vault.path + "/logs")
 
     # Save a log to vault/logs/LaunchNotebookServer.log
-    logging.basicConfig(filename=vault + "/logs/LaunchNotebookServer.log", format='%(asctime)s %(message)s',
+    logging.basicConfig(filename=vault.path + "/logs/LaunchNotebookServer.log", format='%(asctime)s %(message)s',
                         level=logging.INFO)
 
     logging.info("LaunchNotebookServer.py started")
-    logging.info("Vault: %s" % vault)
+    logging.info("Vault: %s" % vault.path)
 
-    credentials_path, aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = \
-        read_credentials(vault)
+    # Get the AWS credentials from the User's Vault
+    credentials = Credentials()
+    aws_access_key_id = credentials.aws_access_key_id
+    aws_secret_access_key = credentials.aws_secret_access_key
+    user_name = credentials.aws_user_name
+    key_pair_file = credentials.ec2_ssh_key_pair_file
+    key_name = credentials.ec2_ssh_key_name
 
     # Open connection to aws
     try:

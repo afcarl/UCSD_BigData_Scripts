@@ -8,6 +8,7 @@ import subprocess
 import select
 import time
 import getpass
+from ucsd_bigdata_scripts.vault import Vault
 
 
 def empty_call_back(line):
@@ -54,36 +55,28 @@ def run_command(command, stderr_call_back=empty_call_back, stdout_call_back=empt
 
 
 if __name__ == "__main__":
-    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-    try:
-        os.environ['EC2_VAULT']
-    except KeyError:
-        vault = expanduser("~") + '/Vault'
-    else:
-        vault = os.environ['EC2_VAULT']
-
-    # Exit if no vault directory is found
-    if not os.path.isdir(vault):
-        sys.exit("Vault directory not found.")
+    # Get the vault from ~/.vault or default to ~/Vault
+    vault = Vault()
 
     # Create a logs directory in the vault directory if one does not exist
-    if not os.path.exists(vault + "/logs"):
-        os.makedirs(vault + "/logs")
+    if not os.path.exists("%s/logs" % vault.path):
+        os.makedirs("%s/logs" % vault.path)
 
     # Save a log to vault/logs/github_add_ssh_key.log
-    logging.basicConfig(filename=vault + "/logs/github_add_ssh_key.log", format='%(asctime)s %(message)s',
-                        level=logging.INFO)
+    logging.basicConfig(filename="%s/logs/github_add_ssh_key.log" % vault.path,
+                        format='%(asctime)s %(message)s', level=logging.INFO)
 
     logging.info("github_add_ssh_key.py started")
-    logging.info("Vault: %s" % vault)
+    logging.info("Vault: %s" % vault.path)
 
     # Generate new SSH keys if github_id_rsa or github_id_rsa.pub don't exist
-    if not os.path.isfile(vault + "/github_id_rsa") or not os.path.isfile(vault + "/github_id_rsa.pub"):
+    if not os.path.isfile("%s/github_id_rsa" % vault.path) or \
+            not os.path.isfile("%s/github_id_rsa.pub" % vault.path):
         # If one of the two files exists, delete it
-        if os.path.isfile(vault + "/github_id_rsa"):
-            os.remove(vault + "/github_id_rsa")
-        if os.path.isfile(vault + "/github_id_rsa.pub"):
-            os.remove(vault + "/github_id_rsa.pub")
+        if os.path.isfile("%s/github_id_rsa" % vault.path):
+            os.remove("%s/github_id_rsa" % vault.path)
+        if os.path.isfile("%s/github_id_rsa.pub" % vault.path):
+            os.remove("%s/github_id_rsa.pub" % vault.path)
 
         # Function to parse the output of the ssh_keygen command
         def parse_ssh_keygen_response(response):
@@ -97,7 +90,7 @@ if __name__ == "__main__":
             return False
 
         # Generate the SSH keys
-        ssh_keygen = ["ssh-keygen", "-t", "rsa", "-f", "%s/github_id_rsa" % vault, "-P", ""]
+        ssh_keygen = ["ssh-keygen", "-t", "rsa", "-f", "%s/github_id_rsa" % vault.path, "-P", ""]
         logging.info("Generating new SSH keys: %s" % ' '.join(ssh_keygen))
         print "Generating new SSH keys: %s" % ' '.join(ssh_keygen)
 
@@ -108,20 +101,21 @@ if __name__ == "__main__":
             logging.info("github_add_ssh_key.py finished")
             sys.exit("Generating new SSH keys failed!")
     else:
-        logging.info("Skipping ssh-keygen: %s/github_id_rsa and %s/github_id_rsa.pub already exist" % (vault, vault))
+        logging.info("Skipping ssh-keygen: %s/github_id_rsa and %s/github_id_rsa.pub already exist"
+                     % (vault.path, vault.path))
 
     # Read vault/github_id_rsa.pub
     ssh_public_key = None
-    if os.path.isfile(vault + "/github_id_rsa.pub"):
-        logging.info("Reading %s/github_id_rsa.pub" % vault)
-        f = open(vault + "/github_id_rsa.pub", "r")
+    if os.path.isfile("%s/github_id_rsa.pub" % vault.path):
+        logging.info("Reading %s/github_id_rsa.pub" % vault.path)
+        f = open("%s/github_id_rsa.pub" % vault.path, "r")
         ssh_public_key = f.read().rstrip()
         logging.info("github_id_rsa.pub: %s" % ssh_public_key)
         f.close()
     else:
-        logging.info("Error reading %s/github_id_rsa.pub" % vault)
+        logging.info("Error reading %s/github_id_rsa.pub" % vault.path)
         logging.info("github_add_ssh_key.py finished")
-        sys.exit("Error reading %s/github_id_rsa.pub" % vault)
+        sys.exit("Error reading %s/github_id_rsa.pub" % vault.path)
 
     # Get the users GitHub username and password
     print "This script does not support GitHub accounts with two-factor authentication enabled. " \
@@ -184,8 +178,8 @@ if __name__ == "__main__":
     run_command(ssh_agent, display=False)
 
     # Add the ssh key to the ssh agent
-    logging.info("Adding SSH key: %s/github_id_rsa" % vault)
-    ssh_add = ["ssh-add", "%s/github_id_rsa" % vault]
+    logging.info("Adding SSH key: %s/github_id_rsa" % vault.path)
+    ssh_add = ["ssh-add", "%s/github_id_rsa" % vault.path]
     run_command(ssh_add, display=False)
 
     # Function to parse the output of the verify_ssh command
@@ -243,7 +237,7 @@ if __name__ == "__main__":
 
             # Append `eval "$(ssh-agent -s)"` and `ssh-add ~/Vault/github_id_rsa` to login script
             f = open(bash, "a")
-            f.write("\n\n# Added by github_add_ssh_key.py\neval \"$(ssh-agent -s)\"\nssh-add ~/Vault/github_id_rsa\n")
+            f.write("\n\n# Added by github_add_ssh_key.py\neval \"$(ssh-agent -s)\"\nssh-add %s/github_id_rsa\n" % vault.path)
             f.close()
 
             logging.info("Updated %s" % bash)
@@ -252,7 +246,7 @@ if __name__ == "__main__":
 
         # Create login script with `eval "$(ssh-agent -s)"` and `ssh-add ~/Vault/github_id_rsa`
         f = open(bash, "w")
-        f.write("\n\n# Added by github_add_ssh_key.py\neval \"$(ssh-agent -s)\"\nssh-add ~/Vault/github_id_rsa\n")
+        f.write("\n\n# Added by github_add_ssh_key.py\neval \"$(ssh-agent -s)\"\nssh-add %s/github_id_rsa\n" % vault.path)
         f.close()
 
         logging.info("Created %s" % bash)

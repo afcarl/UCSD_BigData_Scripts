@@ -2,56 +2,18 @@
 
 import os
 import sys
-import pickle
-from os.path import expanduser
 import dateutil.parser
 from dateutil import tz
 from boto.emr.connection import EmrConnection
 from boto.s3.connection import S3Connection
+from ucsd_bigdata_scripts.credentials import Credentials
 import gzip
 
 
-def read_credentials():
-    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-    try:
-        os.environ['EC2_VAULT']
-    except KeyError:
-        vault = expanduser("~") + '/Vault'
-    else:
-        vault = os.environ['EC2_VAULT']
-
-    # Exit if no vault directory is found
-    if not os.path.isdir(vault):
-        sys.exit("Vault directory not found.")
-
-    # Read credentials from vault/Creds.pkl
-    try:
-        p_credentials_path = vault + '/Creds.pkl'
-        p_credentials_file = open(p_credentials_path)
-        p = pickle.load(p_credentials_file)
-        credentials = p['mrjob']
-    except Exception, e:
-        print e
-        sys.exit("Could not read %s/Creds.pkl" % vault)
-
-    for c in credentials:
-        if c == "key_id":
-            p_aws_access_key_id = credentials['key_id']
-        elif c == "secret_key":
-            p_aws_secret_access_key = credentials['secret_key']
-
-    # These credentials are required to be set before proceeding
-    try:
-        p_aws_access_key_id
-        p_aws_secret_access_key
-    except NameError, e:
-        sys.exit("Not all of the credentials were defined: %s" % e)
-
-    return p_aws_access_key_id, p_aws_secret_access_key
-
-
 if __name__ == "__main__":
-    aws_access_key_id, aws_secret_access_key = read_credentials()
+    credentials = Credentials()
+    aws_access_key_id = credentials.aws_access_key_id
+    aws_secret_access_key = credentials.aws_secret_access_key
 
     emr_conn = EmrConnection(aws_access_key_id, aws_secret_access_key)
 

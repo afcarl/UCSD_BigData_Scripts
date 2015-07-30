@@ -3,12 +3,14 @@
 import os
 import sys
 import json
+from ucsd_bigdata_scripts.vault import Vault
 
 
 class Credentials:
 
-    def __init__(self, vault_path):
-        self.credentials_json_file = "%s/credentials.json" % vault_path
+    def __init__(self):
+        vault = Vault()
+        self.credentials_json_file = "%s/credentials.json" % vault.path
 
         self.aws_user_name = None
         self.aws_access_key_id = None

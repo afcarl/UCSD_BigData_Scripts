@@ -450,7 +450,7 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
+    # Get the vault from ~/.vault or default to ~/Vault
     vault = Vault()
 
     # Create a logs directory in the vault directory if one does not exist

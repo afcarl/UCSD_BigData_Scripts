@@ -20,20 +20,23 @@ if __name__ == "__main__":
     elif args["history"]:
         vault_history = vault.history()
 
-        for position, history_path in enumerate(vault_history):
-            print "\t%s. %s" % (position + 1, history_path)
+        if len(vault_history) > 0:
+            for position, history_path in enumerate(vault_history):
+                print "\t%s. %s" % (position + 1, history_path)
 
-        # Make sure user_input is valid
-        selected_vault = None
-        while selected_vault is None:
-            user_input = raw_input("\nEnter the number next to the vault that you "
-                                   "would like to use: ")
-            try:
-                if 0 < int(user_input) <= len(vault_history):
-                    selected_vault = int(user_input) - 1
-            except ValueError:
-                continue
+            # Make sure user_input is valid
+            selected_vault = None
+            while selected_vault is None:
+                user_input = raw_input("\nEnter the number next to the vault that you "
+                                       "would like to use: ")
+                try:
+                    if 0 < int(user_input) <= len(vault_history):
+                        selected_vault = int(user_input) - 1
+                except ValueError:
+                    continue
 
-        vault.set(vault_history[selected_vault])
+            vault.set(vault_history[selected_vault])
+        else:
+            print "\nVault history is empty."
 
     print "\nThe Vault directory is: %s" % vault.path

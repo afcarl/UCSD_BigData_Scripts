@@ -17,8 +17,8 @@ import dateutil.parser
 import datetime
 import logging
 from IPython.lib import passwd
-from ucsd_bigdata_scripts.vault import Vault
-from ucsd_bigdata_scripts.credentials import Credentials
+from ucsd_bigdata.vault import Vault
+from ucsd_bigdata.credentials import Credentials
 
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014

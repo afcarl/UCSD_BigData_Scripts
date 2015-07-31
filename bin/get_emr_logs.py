@@ -6,7 +6,7 @@ import dateutil.parser
 from dateutil import tz
 from boto.emr.connection import EmrConnection
 from boto.s3.connection import S3Connection
-from ucsd_bigdata_scripts.credentials import Credentials
+from ucsd_bigdata.credentials import Credentials
 import gzip
 
 

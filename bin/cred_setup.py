@@ -12,11 +12,13 @@ import time
 import logging
 import argparse
 import shutil
-from ucsd_bigdata_scripts.vault import Vault
+from ucsd_bigdata.vault import Vault
+from pkg_resources import resource_string
 
 credentials_file_name = "credentials.json"
 emr_ssh_key_pair_name = "emr-shared-key"
 emr_ssh_key_pair_file_name = "emr-shared-key.pem"
+mrjob_template = resource_string("ucsd_bigdata", "templates/mrjob.conf")
 
 
 def test_aws_credentials(aws_access_key_id, aws_secret_access_key):
@@ -317,11 +319,10 @@ def create_mrjob_conf(aws_user_name, aws_access_key_id, aws_secret_access_key, s
     s3_log_uri = "%slog/" % s3_bucket
 
     logging.info("Creating ~/.mrjob.conf")
-    template = open('templates/mrjob.conf').read()
 
-    filled_template = template % (aws_user_name, aws_user_name, aws_access_key_id,
-                                  aws_secret_access_key, s3_scratch_uri, s3_log_uri,
-                                  emr_ssh_key_pair_name, emr_ssh_key_pair_file)
+    filled_template = mrjob_template % (aws_user_name, aws_user_name, aws_access_key_id,
+                                        aws_secret_access_key, s3_scratch_uri, s3_log_uri,
+                                        emr_ssh_key_pair_name, emr_ssh_key_pair_file)
     logging.info("~/.mrjob.conf template filled")
 
     home = os.environ['HOME']

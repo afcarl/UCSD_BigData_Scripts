@@ -4,7 +4,7 @@ import os
 import sys
 from mrjob.emr import EMRJobRunner
 from operator import itemgetter
-from ucsd_bigdata_scripts.credentials import Credentials
+from ucsd_bigdata.credentials import Credentials
 
 
 def find_waiting_flow(aws_access_key_id=None, aws_secret_access_key=None, s3_scratch_uri=None,

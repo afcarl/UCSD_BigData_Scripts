@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-from ucsd_bigdata_scripts.vault import Vault
+from ucsd_bigdata.vault import Vault
 
 if __name__ == "__main__":
 

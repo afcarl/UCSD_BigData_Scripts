@@ -8,7 +8,7 @@ import subprocess
 import select
 import time
 import getpass
-from ucsd_bigdata_scripts.vault import Vault
+from ucsd_bigdata.vault import Vault
 
 
 def empty_call_back(line):

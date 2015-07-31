@@ -27,6 +27,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         cluster_id = sys.argv[1]
     else:
+        if len(clusters.clusters) == 0:
+            sys.exit("No EMR clusters running.")
         selected_cluster = input("Select a Cluster: ")
         cluster_id = clusters.clusters[int(selected_cluster)].id
 

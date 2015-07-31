@@ -3,7 +3,7 @@
 import os
 import sys
 import json
-from ucsd_bigdata_scripts.vault import Vault
+from ucsd_bigdata.vault import Vault
 
 
 class Credentials:

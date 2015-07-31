@@ -4,7 +4,6 @@ import os
 import sys
 from mrjob.emr import EMRJobRunner
 from operator import itemgetter
-from ucsd_bigdata.credentials import Credentials
 
 
 def find_waiting_flow(aws_access_key_id=None, aws_secret_access_key=None, s3_scratch_uri=None,
@@ -55,14 +54,3 @@ def find_waiting_flow(aws_access_key_id=None, aws_secret_access_key=None, s3_scr
         index += 1
     
     return waiting_flows_dict
-
-if __name__ == "__main__":
-    credentials = Credentials()
-    credentials.get(json_object_name="admin")
-
-    print find_waiting_flow(aws_access_key_id=credentials.aws_access_key_id,
-                            aws_secret_access_key=credentials.aws_secret_access_key,
-                            s3_scratch_uri="%stmp/" % credentials.s3_bucket,
-                            s3_log_uri="%slog/" % credentials.s3_bucket,
-                            ec2_key_pair="emr-shared-key",
-                            ec2_key_pair_file=credentials.emr_ssh_key_pair_file)

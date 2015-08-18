@@ -27,5 +27,6 @@ Removal
 Remove via pip:
 
 ::
+
     $ pip uninstall ucsd-bigdata -y
 

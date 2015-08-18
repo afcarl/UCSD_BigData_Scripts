@@ -19,13 +19,13 @@ def readme():
 
 
 setup(name="ucsd-bigdata",
-      version="1.0.1",
+      version="1.0.2",
       description="Scripts for the UCSD MAS Data Science and Engineering program",
       long_description=readme(),
       author="UCSD MAS Data Science and Engineering program",
       author_email="",
       scripts=[
-          "bin/cred_setup.py",
+          "bin/ucsd-bigdata-setup.py",
           "bin/find_waiting_flow.py",
           "bin/get_emr_logs.py",
           "bin/github_add_ssh_key.py",

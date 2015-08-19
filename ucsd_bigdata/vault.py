@@ -25,7 +25,7 @@ class Vault:
 
         # Exit if no vault directory is found
         if not os.path.isdir(path):
-            sys.exit("Vault directory not found.")
+            sys.exit("Vault directory not found. Path: %s" % path)
 
         return path
 

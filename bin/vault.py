@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import argparse
 from ucsd_bigdata.vault import Vault
 
@@ -13,7 +14,7 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    vault = Vault()
+    vault = Vault(check_dir=False)
 
     if args["set"] is not None:
         vault.set(args["set"])
@@ -39,4 +40,7 @@ if __name__ == "__main__":
         else:
             print "\nVault history is empty."
 
-    print "\nThe Vault directory is: %s" % vault.path
+    if os.path.isdir(vault.path):
+        print "\nThe Vault directory is: %s" % vault.path
+    else:
+        print "\nVault directory not found. Path: %s" % vault.path

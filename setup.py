@@ -19,7 +19,7 @@ def readme():
 
 
 setup(name="ucsd-bigdata",
-      version="1.0.2",
+      version="1.0.3",
       description="Scripts for the UCSD MAS Data Science and Engineering program",
       long_description=readme(),
       author="UCSD MAS Data Science and Engineering program",

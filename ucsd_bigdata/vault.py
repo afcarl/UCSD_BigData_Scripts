@@ -7,11 +7,11 @@ import json
 
 class Vault:
 
-    def __init__(self):
+    def __init__(self, check_dir=True):
         self.vault_config = "%s/.vault" % os.environ['HOME']
-        self.path = Vault.get(self)
+        self.path = Vault.get(self, check_dir=check_dir)
 
-    def get(self):
+    def get(self, check_dir=True):
         path = "%s/Vault" % os.environ['HOME']
 
         if os.path.isfile(self.vault_config):
@@ -23,9 +23,10 @@ class Vault:
                 print "%s is not valid json" % self.vault_config
                 sys.exit()
 
-        # Exit if no vault directory is found
-        if not os.path.isdir(path):
-            sys.exit("Vault directory not found. Path: %s" % path)
+        if check_dir:
+            # Exit if no vault directory is found
+            if not os.path.isdir(path):
+                sys.exit("Vault directory not found. Path: %s" % path)
 
         return path
 

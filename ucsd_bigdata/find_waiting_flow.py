@@ -2,6 +2,7 @@
 
 import os
 import sys
+from os.path import expanduser
 from mrjob.emr import EMRJobRunner
 from operator import itemgetter
 
@@ -20,8 +21,8 @@ def find_waiting_flow(aws_access_key_id=None, aws_secret_access_key=None, s3_scr
                                 ec2_key_pair_file=ec2_key_pair_file).make_emr_conn()
     # If options are not specified then use the options in ~/.mrjob.conf
     else:
-        if not os.path.isfile("%s/.mrjob.conf" % os.environ['HOME']):
-            sys.exit("%s/.mrjob.conf no found" % os.environ['HOME'])
+        if not os.path.isfile("%s/.mrjob.conf" % expanduser("~")):
+            sys.exit("%s/.mrjob.conf no found" % expanduser("~"))
 
         emr_conn = EMRJobRunner().make_emr_conn()
 

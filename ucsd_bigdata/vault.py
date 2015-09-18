@@ -3,16 +3,17 @@
 import os
 import sys
 import json
+from os.path import expanduser
 
 
 class Vault:
 
     def __init__(self, check_dir=True):
-        self.vault_config = "%s/.vault" % os.environ['HOME']
+        self.vault_config = "%s/.vault" % expanduser("~")
         self.path = Vault.get(self, check_dir=check_dir)
 
     def get(self, check_dir=True):
-        path = "%s/Vault" % os.environ['HOME']
+        path = "%s/Vault" % expanduser("~")
 
         if os.path.isfile(self.vault_config):
             try:

@@ -12,6 +12,7 @@ import time
 import logging
 import argparse
 import shutil
+from os.path import expanduser
 from ucsd_bigdata.vault import Vault
 from pkg_resources import resource_string
 
@@ -325,7 +326,7 @@ def create_mrjob_conf(aws_user_name, aws_access_key_id, aws_secret_access_key, s
                                         emr_ssh_key_pair_name, emr_ssh_key_pair_file)
     logging.info("~/.mrjob.conf template filled")
 
-    home = os.environ['HOME']
+    home = expanduser("~")
     mrjob_outfile = "%s/.mrjob.conf" % home
 
     try:
